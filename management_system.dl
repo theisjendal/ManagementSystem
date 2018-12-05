@@ -1,7 +1,22 @@
 % Written by Theis Erik Jendal, tjenda15@student.aau.dk
 
-Airline("SAS").
 
+
+%% Passengers
+Passenger(0,"Joe", "Jakobsen", "07-27-1995").
+Passenger(1,"Johnny", "Jakobsen", "09-09-1909").
+Passenger(2,"John", "Jakobsen", "09-09-2000").
+
+
+%% Passports
+Passport(0, "Denmark").
+Passport(1, "Britain").
+Passport(2, "Hangry").
+Passport(2, "United States of America").
+
+
+%% Black lists
+BlackList("Denmark", "United States of America").
 
 %% Countries
 Country("Denmark").
@@ -9,6 +24,7 @@ Country("United States of America").
 Country("Britain").
 Country("Hangry").
 
+Airline("SAS").
 
 %% Airports
 Airport("CPH", "Copenhagen", "Denmark", "Clear").
@@ -42,25 +58,10 @@ OperatesIn("Heavy", Weather) :-
     Weather != "Thunderstorm".
 
 
-%% Passengers
-Passenger(0,"Joe", "Jakobsen", "07-27-1995").
-Passenger(1,"Johnny", "Jakobsen", "09-09-1909").
-Passenger(2,"John", "Jakobsen", "09-09-2000").
-
-
-%% Passports
-Passport(0, "Denmark").
-Passport(1, "Britain").
-Passport(2, "Hangry").
-Passport(2, "United States of America").
-
-
-%% Black lists
-BlackList("Denmark", "United States of America").
-
-
 %% Flight legs
-Leg("CPH", "JFK", "SAS").
+Leg("CPH", "JFK", "SAS", "OY-JJO").
+Leg("JFK", "CPH", "SAS", "OY-JJO").
+Leg("AAL", "AAR", "SAS", "OY-JJO").
 
 
 %% Visas
@@ -74,8 +75,7 @@ VisaAgreement(A,B) :-
     A == B.
 
 Reservation("8V32EU", 0, 27, "B", "AAL", "AAR", "SAS").
-Reservation("8V33EU", 1, 27, "B", "AAL", "AAR", "SAS").
-
+Reservation("8V33EU", 1, 27, "C", "AAL", "AAR", "SAS").
 
 
 % A passenger can fly to any destination, if it is a passenger and has a passport with a VisaAgreemnt to the country.
@@ -83,17 +83,40 @@ CanFlyTo(PassengerID, IATA) :-
     Passenger(PassengerID, _, _, _),
     Passport(PassengerID, FromCountry),
     VisaAgreement(FromCountry, ToCountry),
-    Airport(IATA, _, ToCountry).
+    Airport(IATA, _, ToCountry, _).
 
 
 IllegalResevation(ReservationID) :-
     Reservation(ReservationID, PassengerID, Row, Column, From, To, Airline),
     not CanFlyTo(PassengerID, To).
 
-DoubleBooking(ReservationID1, ReservationID2) :-
+DoubleBooking(ReservationID1) :-
     Reservation(ReservationID1, _, Row, Column, From, To, Airline),
     Reservation(ReservationID2, _, Row, Column, From, To, Airline),
     ReservationID1 != ReservationID2.
 
+CanTakeOff(RegistrationNumber) :-
+    Aircraft(RegistrationNumber, _, _, Type), % Get aircraft type.
+
+    Leg(From, To, Airline, RegistrationNumber), % Get destinations.
+    
+    FineWeather(From, Type),
+    FineWeather(From, Type),
+
+    Reservation(ReservationID, _, _, _, From, To, Airline), % Get reservations for leg.
+    not IllegalResevation(ReservationID),                   % Can travel to the desired location.
+    not DoubleBooking(ReservationID).                       % Check no double bookings.
+
+FineWeather(Airport, Type) :-
+    Airport(Airport, _, _, Weather),
+    OperatesIn(Type, Weather).
+
+Traffic(Airport, RegistrationNumber) :- Leg(Airport, _, _, RegistrationNumber).
+Traffic(Airport, RegistrationNumber) :- Leg(_, Airport, _, RegistrationNumber).
+
+IsClosed(Airport) :-
+    Traffic(Airport, RegistrationNumber),
+    not FineWeather(Airport, RegistrationNumber).
 
 
+Traffic(A, B)?
