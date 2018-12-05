@@ -1,0 +1,99 @@
+% Written by Theis Erik Jendal, tjenda15@student.aau.dk
+
+Airline("SAS").
+
+
+%% Countries
+Country("Denmark").
+Country("United States of America").
+Country("Britain").
+Country("Hangry").
+
+
+%% Airports
+Airport("CPH", "Copenhagen", "Denmark", "Clear").
+Airport("BLL", "Billund", "Denmark", "Windy").
+Airport("AAR", "Aarhus", "Denmark", "Clear").
+Airport("AAL", "Aalborg", "Denmark", "Windy").
+Airport("JFK", "New York City", "United States of America", "Thunderstorm").
+Airport("LHR", "London", "Britain", "Clear").
+
+
+%% Aircrafts
+Aircraft("OY-JJO", "Airbus A380", "Airbus", "Heavy").
+
+
+%% Weather types
+Weather("Clear").
+Weather("Cloudy").
+Weather("Windy").
+Weather("Thunderstorm").
+
+
+%% Operate conditions
+% If there were more weather types that light could not travel in, it is faster to
+% define the legal conditions than the illegal.
+OperatesIn("Light", "Clear").
+OperatesIn("Light", "Cloudy").
+
+% All equality operators in DLV satisfy safety conditions.
+OperatesIn("Heavy", Weather) :-
+    Weather(Weather),
+    Weather != "Thunderstorm".
+
+
+%% Passengers
+Passenger(0,"Joe", "Jakobsen", "07-27-1995").
+Passenger(1,"Johnny", "Jakobsen", "09-09-1909").
+Passenger(2,"John", "Jakobsen", "09-09-2000").
+
+
+%% Passports
+Passport(0, "Denmark").
+Passport(1, "Britain").
+Passport(2, "Hangry").
+Passport(2, "United States of America").
+
+
+%% Black lists
+BlackList("Denmark", "United States of America").
+
+
+%% Flight legs
+Leg("CPH", "JFK", "SAS").
+
+
+%% Visas
+VisaAgreement("Denmark", "Britain").
+VisaAgreement("Britain", "Denmark").
+
+% Can always fly to origin country.
+VisaAgreement(A,B) :-
+    Country(A),
+    Country(B),
+    A == B.
+
+Reservation("8V32EU", 0, 27, "B", "AAL", "AAR", "SAS").
+Reservation("8V33EU", 1, 27, "B", "AAL", "AAR", "SAS").
+
+
+
+% A passenger can fly to any destination, if it is a passenger and has a passport with a VisaAgreemnt to the country.
+CanFlyTo(PassengerID, IATA) :-
+    Passenger(PassengerID, _, _, _),
+    Passport(PassengerID, FromCountry),
+    VisaAgreement(FromCountry, ToCountry),
+    Airport(IATA, _, ToCountry).
+
+
+IllegalResevation(ReservationID) :-
+    Reservation(ReservationID, PassengerID, Row, Column, From, To, Airline),
+    not CanFlyTo(PassengerID, To).
+
+DoubleBooking(ReservationID1, ReservationID2) :-
+    Reservation(ReservationID1, _, Row, Column, From, To, Airline),
+    Reservation(ReservationID2, _, Row, Column, From, To, Airline),
+    ReservationID1 != ReservationID2.
+
+
+
