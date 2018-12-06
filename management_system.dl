@@ -1,22 +1,36 @@
 % Written by Theis Erik Jendal, tjenda15@student.aau.dk
-
-
+#maxint=10.
 
 %% Passengers
 Passenger(0,"Joe", "Jakobsen", "07-27-1995").
 Passenger(1,"Johnny", "Jakobsen", "09-09-1909").
 Passenger(2,"John", "Jakobsen", "09-09-2000").
 
-
 %% Passports
 Passport(0, "Denmark").
 Passport(1, "Britain").
-Passport(2, "Hangry").
+Passport(2, "Denmark").
 Passport(2, "United States of America").
 
 
-%% Black lists
-BlackList("Denmark", "United States of America").
+%% Black lists, A cannot enter B in Blacklist(A,B).
+BlackList("United States of America", "Britain").
+
+% Is blacklisted regardless of having passport i blacklist country.
+BlackListedAirport(PassengerID, IATA) :-
+    Passport(PassengerID, Country),
+    BlackList(Country, C),
+    Airport(IATA, _, C, _).
+
+%% Visas
+VisaAgreement("Denmark", "Britain").
+VisaAgreement("Britain", "Denmark").
+
+% Can always fly to origin country.
+VisaAgreement(A,B) :-
+    Country(A),
+    Country(B),
+    A == B.
 
 %% Countries
 Country("Denmark").
@@ -24,6 +38,7 @@ Country("United States of America").
 Country("Britain").
 Country("Hangry").
 
+%Airlines
 Airline("SAS").
 
 %% Airports
@@ -34,9 +49,43 @@ Airport("AAL", "Aalborg", "Denmark", "Windy").
 Airport("JFK", "New York City", "United States of America", "Thunderstorm").
 Airport("LHR", "London", "Britain", "Clear").
 
+%------------------------
+% Seat facts and inferral.
+%------------------------
 
-%% Aircrafts
-Aircraft("OY-JJO", "Airbus A380", "Airbus", "Heavy").
+% Possible Seat columns, and their location.
+Column("A", "Window").
+Column("B", "Aisle").
+Column("C", "Aisle").
+Column("D", "Window").
+
+% Possible classes
+Class("Business").
+Class("Economy").
+
+GetClass(Row, "Business") :-
+    #int(Row),
+    Row <= 2.
+
+GetClass(Row, "Economy") :-
+    #int(Row),
+    Row > 2.
+
+
+Seat(Aircraft, Row, Column, Location) :-
+    Aircraft(Aircraft, _, _, _, MaxRow),
+    Column(Column, Location),
+
+    #int(Row),
+    Row <= MaxRow,
+    Row != 0.
+
+
+
+%% Aircrafts: Registration number, model, manufacturer, type, and max row number.
+Aircraft("OY-JJO", "Airbus A380", "Airbus", "Heavy", 5).
+Aircraft("OY-JJJ", "Airbus A380", "Airbus", "Heavy", 10).
+Aircraft("OY-JOO", "Airbus A380", "Airbus", "Heavy", 2).
 
 
 %% Weather types
@@ -60,26 +109,17 @@ OperatesIn("Heavy", Weather) :-
 
 %% Flight legs
 Leg("CPH", "JFK", "SAS", "OY-JJO").
-Leg("JFK", "CPH", "SAS", "OY-JJO").
-Leg("AAL", "AAR", "SAS", "OY-JJO").
+Leg("JFK", "CPH", "SAS", "OY-JJJ").
+Leg("AAL", "AAR", "SAS", "OY-JOO").
 
-
-%% Visas
-VisaAgreement("Denmark", "Britain").
-VisaAgreement("Britain", "Denmark").
-
-% Can always fly to origin country.
-VisaAgreement(A,B) :-
-    Country(A),
-    Country(B),
-    A == B.
-
-Reservation("8V32EU", 0, 27, "B", "AAL", "AAR", "SAS").
-Reservation("8V33EU", 1, 27, "C", "AAL", "AAR", "SAS").
-
+% Reservation: Booking number, PassengerID, Row, Column, From, To, and Airline
+Reservation("8V32EU", 0, 3, "B", "AAL", "AAR", "SAS").
+Reservation("8V33EU", 1, 3, "C", "AAL", "AAR", "SAS").
+Reservation("8V34EU", 2, 3, "C", "AAL", "AAR", "SAS").
+Reservation("8V35EU", 3, 3, "D", "AAL", "AAR", "SAS").
 
 % A passenger can fly to any destination, if it is a passenger and has a passport with a VisaAgreemnt to the country.
-CanFlyTo(PassengerID, IATA) :-
+MayFlyTo(PassengerID, IATA) :-
     Passenger(PassengerID, _, _, _),
     Passport(PassengerID, FromCountry),
     VisaAgreement(FromCountry, ToCountry),
@@ -88,7 +128,7 @@ CanFlyTo(PassengerID, IATA) :-
 
 IllegalResevation(ReservationID) :-
     Reservation(ReservationID, PassengerID, Row, Column, From, To, Airline),
-    not CanFlyTo(PassengerID, To).
+    not MayFlyTo(PassengerID, To).
 
 DoubleBooking(ReservationID1) :-
     Reservation(ReservationID1, _, Row, Column, From, To, Airline),
@@ -96,18 +136,19 @@ DoubleBooking(ReservationID1) :-
     ReservationID1 != ReservationID2.
 
 CanTakeOff(RegistrationNumber) :-
-    Aircraft(RegistrationNumber, _, _, Type), % Get aircraft type.
+     % Get aircraft type.
 
     Leg(From, To, Airline, RegistrationNumber), % Get destinations.
     
-    FineWeather(From, Type),
-    FineWeather(From, Type),
+    FineWeather(From, RegistrationNumber),
+    FineWeather(To, RegistrationNumber),
 
     Reservation(ReservationID, _, _, _, From, To, Airline), % Get reservations for leg.
     not IllegalResevation(ReservationID),                   % Can travel to the desired location.
     not DoubleBooking(ReservationID).                       % Check no double bookings.
 
-FineWeather(Airport, Type) :-
+FineWeather(Airport, RegistrationNumber) :-
+    Aircraft(RegistrationNumber, _, _, Type, _),
     Airport(Airport, _, _, Weather),
     OperatesIn(Type, Weather).
 
@@ -119,4 +160,27 @@ IsClosed(Airport) :-
     not FineWeather(Airport, RegistrationNumber).
 
 
-Traffic(A, B)?
+DualCitizenMayFlyTo(PassengerID, IATA) :-
+    MayFlyTo(PassengerID, IATA),
+    not BlackListedAirport(PassengerID, IATA).
+
+CanBookFlightTo(PassengerID,From, To) :-
+    Leg(From, To, Airline, RegistrationNumber),
+    MayFlyTo(PassengerID, To),
+    FreeSeat(From, To, Airline, RegistrationNumber).
+
+CanBookFlightTo(PassengerID, From, To) :-
+    CanBookFlightTo(PassengerID, From, Stop),
+    MayFlyTo(PassengerID, To),
+    Leg(Stop, To, Airline, RegistrationNumber),
+    FreeSeat(Stop, To, Airline, RegistrationNumber).
+    
+FreeSeat(From, To, Airline, RegistrationNumber) :- 
+    Leg(From, To, Airline, RegistrationNumber),
+    Seat(RegistrationNumber, Row, Column, _),
+    not BookedSeat(Row, Column, From, To, Airline).
+
+BookedSeat(Row, Column, From, To, Airline) :-
+    Reservation(_, _, Row, Column, From, To, Airline).
+
+CanBookFlightTo(A,B,C)?
