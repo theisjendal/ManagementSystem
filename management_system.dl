@@ -1,4 +1,7 @@
-% Written by Theis Erik Jendal, tjenda15@student.aau.dk
+% Written by: Theis Erik Jendal
+% Contact:    tjenda15@student.aau.dk
+
+% NOTE: This program should be run by dlv - source http://www.dlvsystem.com/
 
 % The maximum integer value in the programme to insure safety.
 #maxint=10.
@@ -10,7 +13,7 @@
 %% Passengers. A passenger has an ID, firstname, lastname and DOB. I include ID to easily identify different passengers.
 Passenger(0,"Joe", "Jakobsen", "07-27-1995").
 Passenger(1,"Johnny", "Jakobsen", "09-09-1909").
-Passenger(2,"John", "Jakobsen", "09-09-2000").
+Passenger(2,"John", "Jakobsen", "09-09-2000"). % Cannot fly to Britain do to blacklisting. In problem 9.
 
 %% Passports. A passport is connected to a passenger ID and a country. It is therefore possible
 %% for a passenger to have multiple passports. 
@@ -41,7 +44,7 @@ Airline("NewAir").
 Airport("CPH", "Copenhagen", "Denmark", "Clear").
 Airport("BLL", "Billund", "Denmark", "Windy").
 Airport("AAR", "Aarhus", "Denmark", "Thunderstorm"). % Is closed do to bad weather.
-Airport("AAL", "Aalborg", "Denmark", "Windy").
+Airport("AAL", "Aalborg", "Denmark", "Windy"). % Also closed.
 Airport("JFK", "New York City", "United States of America", "Cloudy").
 Airport("LHR", "London", "Britain", "Clear").
 
@@ -76,8 +79,7 @@ Aircraft("YY-JJO", "Airbus A380", "Airbus", "Heavy", 5).
 Aircraft("OO-JJO", "Airbus A380", "Airbus", "Heavy", 5).
 Aircraft("OY-JJO", "Airbus A380", "Airbus", "Heavy", 5).
 Aircraft("OY-JJJ", "Airbus A380", "Airbus", "Heavy", 10).
-Aircraft("OY-JOO", "Airbus A380", "Airbus", "Heavy", 2).
-
+Aircraft("OY-JOO", "Airbus A180", "Airbus", "Light", 2).
 
 % Operate facts for light travel. The type and the allowed weather conditions.
 OperatesIn("Light", "Clear").
@@ -95,15 +97,19 @@ Operates(0, "SAS", "YY-JJO"). % Illegal reservation.
 Operates(1, "SAS", "OO-JJO").
 Operates(2, "SAS", "OY-JJO"). % Cannot take off due to bad weather.
 Operates(3, "NewAir", "OY-JJJ").
-Operates(4, "Norwegian", "OY-JOO").
+Operates(4, "Norwegian", "OY-JOO"). % Cannot take off because it is windy.
 
 % Reservation: Booking code, PassengerID, Row, Column, and leg ID.
 Reservation("8V33EU", 1, 3, "C", 2). % Doublebooking.
-Reservation("8V34EU", 2, 3, "C", 2).
-
+Reservation("8V34EU", 2, 3, "C", 2). % Doublebooking.
 Reservation("8V32EU", 0, 3, "B", 2).
-
 Reservation("8V35EU", 1, 3, "D", 0). % Illegal reservation.
+
+% Itinerary, booking code and reservation ID. 
+Itinerary("xxxx", "8V33EU").
+Itinerary("xxxx", "8V35EU").
+Itinerary("yyyy", "8V34EU").
+Itinerary("zzzz", "8V35EU").
 
 %%------------------------------
 %% Intensional Part: Rules
@@ -113,7 +119,7 @@ Reservation("8V35EU", 1, 3, "D", 0). % Illegal reservation.
 VisaAgreement(A,A) :- 
     Country(A).
 
-% A row is business if two or below to simplify airplane facts.
+% A row is business class if two or below to simplify airplane facts.
 GetClass(Row, "Business") :-
     #int(Row),
     Row <= 2.
@@ -123,7 +129,7 @@ GetClass(Row, "Economy") :-
     #int(Row),
     Row > 2.
 
-% Derives all possible seats.
+% Derives all possible seats for an aircraft
 Seat(Aircraft, Row, Column, Location) :-
     Aircraft(Aircraft, _, _, _, MaxRow),
     Column(Column, Location),
@@ -135,9 +141,9 @@ Seat(Aircraft, Row, Column, Location) :-
 
 % Adjacent sets for an airline.
 AdjacentSeat(Airline, Row, Col1, Row, Col2) :-
-    Seat(Airline, Row, Col1, Loc1),
-    Seat(Airline, Row, Col2, Loc2),
-    AdjacentColumn(Col1, Col2).
+    Seat(Airline, Row, Col1, _),
+    Seat(Airline, Row, Col2, _),
+    AdjacentColumns(Col1, Col2).
 
 % Heavy operates in all weather conditions except Thunderstorm.
 OperatesIn("Heavy", Weather) :-
@@ -149,7 +155,7 @@ OperatesIn("Heavy", Weather) :-
 %%------------------------------
 
 % Solution to problem 3.
-% A passenger can fly to any destination, if it is a passenger and has a passport with a VisaAgreemnt to the country.
+% A passenger can fly to any destination, if it is a passenger and has a passport with a VisaAgreemnt to that country.
 MayFlyTo(PassengerID, IATA) :-
     Passenger(PassengerID, _, _, _),
     Passport(PassengerID, FromCountry),
@@ -201,8 +207,8 @@ SafeWeather(Airport, RegistrationNumber) :-
     OperatesIn(Type, Weather).
 
 % Solution to problen 7.
-% An airport is closed if none of the traffic to and from the airport can take off
-% do to bad weather.
+% An airport is closed if all the traffic to and from the airport is grounded
+% do to bad weather. This means an airport with no traffic is not closed.
 IsClosed(Airport) :-
     Traffic(Airport, RegistrationNumber),
     not SafeWeather(Airport, RegistrationNumber).
